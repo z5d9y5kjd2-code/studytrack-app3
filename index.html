@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101827">
+<meta name="description" content="学習時間・教材・計画・成績をまとめて管理する学習アプリ">
+<link rel="manifest" href="manifest.webmanifest">
+<title>StudyTrack</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1220;--panel:#141f31;--panel2:#1b2940;--text:#edf3ff;--muted:#9aabc4;--blue:#65a8ff;--line:#293951;--green:#55d6a0;--red:#ff7d89}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,-apple-system,"Segoe UI",sans-serif;padding-bottom:88px}
+header{padding:18px 18px 8px;display:flex;justify-content:space-between;align-items:center;max-width:900px;margin:auto}
+h1{font-size:21px;margin:0}h2{font-size:18px;margin:14px 0 10px}h3{font-size:15px;margin:0 0 8px}
+main{max-width:900px;margin:auto;padding:10px 16px 24px}.muted{color:var(--muted);font-size:13px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:15px;margin:10px 0}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}.grow{flex:1;min-width:0}
+button,.btn{border:0;border-radius:11px;background:var(--blue);color:#071321;padding:11px 14px;font-weight:700;font-size:14px;cursor:pointer}
+button.secondary{background:var(--panel2);color:var(--text);border:1px solid var(--line)}button.danger{background:#512733;color:#ffdce1}
+button:disabled{opacity:.45}.timer{font-size:clamp(46px,13vw,76px);font-variant-numeric:tabular-nums;text-align:center;font-weight:750;letter-spacing:2px;margin:16px 0}
+.center{text-align:center}.tabs{display:flex;gap:8px;margin:10px 0}.tabs button{flex:1}
+input,select,textarea{width:100%;background:#0d1727;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:11px;font:inherit;margin:5px 0 10px}
+label{font-size:13px;color:var(--muted);display:block}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.stat{font-size:24px;font-weight:750}.bar{height:9px;border-radius:9px;background:#27364d;overflow:hidden}.bar>i{display:block;height:100%;background:var(--blue)}
+.item{padding:12px 0;border-bottom:1px solid var(--line)}.item:last-child{border:0}
+nav{position:fixed;bottom:0;left:0;right:0;background:#101a2a;border-top:1px solid var(--line);display:flex;justify-content:center;padding:8px 4px calc(8px + env(safe-area-inset-bottom));z-index:5}
+nav button{background:transparent;color:var(--muted);padding:7px 4px;flex:1;max-width:130px;font-size:11px}
+nav button.active{color:var(--blue);background:#1b2b43}
+nav span{display:block;font-size:19px;margin-bottom:2px}
+.hidden{display:none!important}.pill{border:1px solid var(--line);border-radius:30px;padding:6px 10px;color:var(--muted);font-size:12px}
+small{color:var(--muted)}.check{width:auto;margin-right:8px}.notice{color:#ffd28b;font-size:12px}
+</style>
+</head>
+<body>
+<header><h1>StudyTrack</h1><span class="pill" id="today"></span></header>
+<main>
+<section id="home" class="page">
+ <div class="panel">
+  <div class="row between"><div><h3>学習タイマー</h3><div class="muted" id="timerModeLabel">自由計測</div></div><span class="pill" id="timerState">停止中</span></div>
+  <div class="tabs"><button id="freeMode" class="secondary">自由計測</button><button id="pomMode" class="secondary">ポモドーロ</button></div>
+  <div class="timer" id="timer">00:00:00</div>
+  <div class="center muted" id="breakLabel">科目と教材を選んで開始</div>
+  <div class="grid" style="margin-top:14px">
+   <div><label>科目</label><select id="timerSubject"></select></div>
+   <div><label>教材（任意）</label><select id="timerMaterial"></select></div>
+  </div>
+  <div class="row"><button id="startBtn" class="grow">開始</button><button id="stopBtn" class="secondary grow" disabled>終了・保存</button><button id="resetBtn" class="secondary">リセット</button></div>
+  <div class="muted center" style="margin-top:9px">ポモドーロ：集中25分 → 休憩5分（休憩は学習時間に含みません）</div>
+ </div>
+ <div class="grid">
+  <div class="panel"><div class="muted">今日の勉強時間</div><div class="stat" id="todayTime">0分</div></div>
+  <div class="panel"><div class="muted">今日の目標達成率</div><div class="stat" id="goalRate">0%</div><div class="bar"><i id="goalBar" style="width:0%"></i></div></div>
+ </div>
+ <div class="panel"><h3>今日のToDo</h3><div id="homeTasks" class="muted">タスクはありません</div></div>
+ <div class="panel"><h3>最近の学習記録</h3><div id="recentSessions"></div></div>
+</section>
+
+<section id="plan" class="page hidden">
+ <h2>学習計画</h2>
+ <div class="panel"><div class="row between"><button class="secondary" id="prevMonth">‹</button><h3 id="monthTitle"></h3><button class="secondary" id="nextMonth">›</button></div><div id="calendar" class="grid"></div></div>
+ <div class="panel"><h3>タスクを追加</h3>
+  <label>日付</label><input type="date" id="taskDate">
+  <label>タスク名</label><input id="taskTitle" placeholder="例：黄チャート 10問">
+  <div class="grid"><div><label>科目</label><select id="taskSubject"></select></div><div><label>予定時間（分）</label><input id="taskMinutes" type="number" min="0" value="30"></div></div>
+  <button id="addTask">追加</button>
+ </div>
+ <div class="panel"><h3 id="taskListTitle">選択日のToDo</h3><div id="taskList"></div></div>
+</section>
+
+<section id="materials" class="page hidden">
+ <h2>教材・参考書</h2>
+ <div class="panel"><h3>教材を登録</h3>
+  <label>教材名</label><input id="matName" placeholder="例：黄チャート 数学II">
+  <label>科目</label><select id="matSubject"></select>
+  <label>進捗方式</label><select id="matType"><option value="pages">ページ数</option><option value="problems">問題数</option><option value="checklist">チェックリスト</option></select>
+  <div class="grid"><div><label>全体量（ページ／問題数）</label><input id="matTotal" type="number" min="1" value="100"></div><div><label>完了量</label><input id="matDone" type="number" min="0" value="0"></div></div>
+  <button id="addMaterial">教材を追加</button>
+ </div>
+ <div id="materialList"></div>
+</section>
+
+<section id="grades" class="page hidden">
+ <h2>成績管理</h2>
+ <div class="panel"><h3>模試・テストを登録</h3>
+  <label>模試・テスト名</label><input id="examName" placeholder="例：全統高2模試">
+  <label>実施日</label><input id="examDate" type="date">
+  <div class="grid"><div><label>総合得点</label><input id="examTotal" type="number" min="0"></div><div><label>偏差値</label><input id="examDeviation" type="number" step=".1"></div><div><label>順位</label><input id="examRank" type="number" min="1"></div><div><label>志望校判定</label><select id="examJudgment"><option value="">未入力</option><option>A</option><option>B</option><option>C</option><option>D</option><option>E</option></select></div></div>
+  <h3>科目別得点</h3><div id="subjectScoreFields" class="grid"></div>
+  <button id="addExam">成績を保存</button>
+ </div><div id="gradeList"></div>
+</section>
+
+<section id="analysis" class="page hidden">
+ <h2>学習分析</h2>
+ <div class="grid">
+  <div class="panel"><div class="muted">累計学習時間</div><div class="stat" id="allTime">0時間</div></div>
+  <div class="panel"><div class="muted">学習日数</div><div class="stat" id="studyDays">0日</div></div>
+ </div>
+ <div class="panel"><h3>科目別の学習時間</h3><div id="subjectStats"></div></div>
+ <div class="panel"><h3>直近7日間</h3><div id="weeklyStats"></div></div>
+</section>
+
+<section id="settings" class="page hidden">
+ <h2>設定・データ管理</h2>
+ <div class="panel"><h3>科目を追加</h3><input id="newSubject" placeholder="科目名"><button id="addSubject">科目を追加</button><div id="subjectList" style="margin-top:12px"></div></div>
+ <div class="panel"><h3>学習目標</h3>
+  <label>1日の目標（分）</label><input id="dailyGoal" type="number" min="0">
+  <label>1週間の目標（分）</label><input id="weeklyGoal" type="number" min="0">
+  <label>1か月の目標（分）</label><input id="monthlyGoal" type="number" min="0">
+  <button id="saveGoals">目標を保存</button>
+ </div>
+ <div class="panel"><h3>バックアップ・復元</h3><p class="muted">JSONは全データの保存・復元、CSVは学習記録の表計算ソフト用出力です。</p>
+  <div class="row"><button id="exportJson">JSONを書き出す</button><button id="exportCsv" class="secondary">学習記録CSV</button></div>
+  <label style="margin-top:12px">JSONから復元</label><input type="file" id="importFile" accept=".json,application/json">
+  <div class="notice">このアプリは端末内にデータを保存します。ブラウザのデータ削除や端末故障に備えて定期的にバックアップしてください。</div>
+ </div>
+ <div class="panel"><h3>タイマー設定</h3><div class="grid"><div><label>集中時間（分）</label><input id="focusLength" type="number" min="1" max="180"></div><div><label>休憩時間（分）</label><input id="breakLength" type="number" min="1" max="60"></div></div><button id="saveTimerSettings">保存</button></div>
+</section>
+</main>
+<nav>
+ <button data-page="home" class="active"><span>⏱</span>ホーム</button>
+ <button data-page="plan"><span>🗓</span>計画</button>
+ <button data-page="materials"><span>📚</span>教材</button>
+ <button data-page="grades"><span>📈</span>成績</button>
+ <button data-page="analysis"><span>📊</span>分析</button>
+ <button data-page="settings"><span>⚙</span>設定</button>
+</nav>
+<script>
+const DEFAULT_SUBJECTS=["数学","英語","現代文・古文・漢文","物理","化学","地理・歴史・公民"];
+const KEY="studytrack_data_v1";
+const blank=()=>({subjects:DEFAULT_SUBJECTS,materials:[],tasks:[],sessions:[],exams:[],goals:{daily:180,weekly:1500,monthly:6000},timer:{focus:25,rest:5}});
+let db;try{db=JSON.parse(localStorage.getItem(KEY))||blank()}catch{db=blank()}
+function save(){localStorage.setItem(KEY,JSON.stringify(db));renderAll()}
+const $=id=>document.getElementById(id);
+const today=()=>new Date().toISOString().slice(0,10);
+const fmt=n=>{let h=Math.floor(n/3600),m=Math.floor(n%3600/60),s=n%60;return [h,m,s].map(x=>String(x).padStart(2,"0")).join(":")};
+const mins=n=>Math.floor(n/60)+"分";
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function fillSelect(id,includeAll=false){let el=$(id);if(!el)return;el.innerHTML=(includeAll?'<option value="">すべて</option>':"")+db.subjects.map(s=>`<option>${esc(s)}</option>`).join("")}
+["timerSubject","taskSubject","matSubject"].forEach(id=>fillSelect(id));
+function setPage(p){document.querySelectorAll(".page").forEach(x=>x.classList.toggle("hidden",x.id!==p));document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x.dataset.page===p));if(p==="grades")renderScoreFields();renderAll()}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>setPage(b.dataset.page));
+$("today").textContent=new Date().toLocaleDateString("ja-JP",{month:"numeric",day:"numeric",weekday:"short"});
+let mode="free",running=false,isBreak=false,startAt=0,elapsed=0,tick=null;
+function paintTimer(){let seconds=elapsed+(running&&!isBreak?Math.floor((Date.now()-startAt)/1000):0);$("timer").textContent=fmt(seconds);$("timerModeLabel").textContent=mode==="free"?"自由計測":(isBreak?"休憩中":"ポモドーロ集中");$("timerState").textContent=running?(isBreak?"休憩中":"計測中"):"停止中";$("startBtn").textContent=running?"一時停止":"開始";$("stopBtn").disabled=elapsed===0&&!running}
+$("freeMode").onclick=()=>{if(running)return;mode="free";isBreak=false;elapsed=0;paintTimer()};
+$("pomMode").onclick=()=>{if(running)return;mode="pom";isBreak=false;elapsed=0;paintTimer()};
+$("startBtn").onclick=()=>{
+ if(running){elapsed+=Math.floor((Date.now()-startAt)/1000);running=false;clearInterval(tick);paintTimer();return}
+ if(mode==="pom"&&isBreak){isBreak=false;elapsed=0}
+ running=true;startAt=Date.now();tick=setInterval(()=>{
+  let sec=elapsed+Math.floor((Date.now()-startAt)/1000);
+  if(mode==="pom"&&!isBreak&&sec>=db.timer.focus*60){elapsed=db.timer.focus*60;saveSession(elapsed);elapsed=0;isBreak=true;startAt=Date.now();$("breakLabel").textContent="休憩時間です。休憩終了後、自動で集中に戻ります。"}
+  else if(mode==="pom"&&isBreak&&sec>=db.timer.rest*60){elapsed=0;isBreak=false;startAt=Date.now();$("breakLabel").textContent="集中を再開しました"}
+  paintTimer()
+ },250);paintTimer()
+};
+$("stopBtn").onclick=()=>{if(running&&!isBreak)elapsed+=Math.floor((Date.now()-startAt)/1000);running=false;clearInterval(tick);if(!isBreak&&elapsed>0)saveSession(elapsed);elapsed=0;isBreak=false;$("breakLabel").textContent="科目と教材を選んで開始";paintTimer()};
+$("resetBtn").onclick=()=>{if(running)return;elapsed=0;isBreak=false;paintTimer()};
+function saveSession(sec){if(sec<1)return;db.sessions.push({date:today(),subject:$("timerSubject").value,material:$("timerMaterial").value,seconds:sec});localStorage.setItem(KEY,JSON.stringify(db));renderAll()}
+$("timerSubject").onchange=()=>{let mats=db.materials.filter(m=>m.subject===$("timerSubject").value);$("timerMaterial").innerHTML='<option value="">教材なし</option>'+mats.map(m=>`<option>${esc(m.name)}</option>`).join("")};
+function daySeconds(d){return db.sessions.filter(s=>s.date===d).reduce((a,s)=>a+s.seconds,0)}
+function renderHome(){let sec=daySeconds(today());$("todayTime").textContent=mins(sec/60);let rate=db.goals.daily?Math.min(100,Math.round(sec/60/db.goals.daily*100)):0;$("goalRate").textContent=rate+"%";$("goalBar").style.width=rate+"%";
+let ts=db.tasks.filter(t=>t.date===today()&&!t.done);$("homeTasks").innerHTML=ts.length?ts.map(t=>`<div class="item">${esc(t.title)} <small>・${esc(t.subject)}</small></div>`).join(""):"今日の未完了タスクはありません";
+$("recentSessions").innerHTML=db.sessions.slice(-5).reverse().map(s=>`<div class="item">${esc(s.date)} ・ ${esc(s.subject)} ・ ${mins(s.seconds/60)}</div>`).join("")||'<div class="muted">学習記録はまだありません</div>'}
+let calDate=new Date(),selectedDate=today();
+function renderCalendar(){let y=calDate.getFullYear(),m=calDate.getMonth();$("monthTitle").textContent=`${y}年${m+1}月`;let first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate();let out=["日","月","火","水","木","金","土"].map(x=>`<div class="muted center">${x}</div>`).join("");for(let i=0;i<first;i++)out+="<div></div>";for(let d=1;d<=days;d++){let key=`${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`,count=db.tasks.filter(t=>t.date===key&&!t.done).length;out+=`<button class="${key===selectedDate?"":"secondary"}" style="padding:8px 2px" data-date="${key}">${d}${count?`<small> •${count}</small>`:""}</button>`}$("calendar").innerHTML=out;document.querySelectorAll("[data-date]").forEach(b=>b.onclick=()=>{selectedDate=b.dataset.date;renderCalendar();renderTasks()})}
+$("prevMonth").onclick=()=>{calDate.setMonth(calDate.getMonth()-1);renderCalendar()};$("nextMonth").onclick=()=>{calDate.setMonth(calDate.getMonth()+1);renderCalendar()};
+function renderTasks(){$("taskListTitle").textContent=selectedDate+" のToDo";let arr=db.tasks.filter(t=>t.date===selectedDate);$("taskList").innerHTML=arr.map(t=>`<div class="item"><label><input class="check" type="checkbox" data-task="${t.id}" ${t.done?"checked":""}>${esc(t.title)} <small>・${esc(t.subject)} ・${t.minutes}分</small></label><button class="secondary" data-del-task="${t.id}">削除</button></div>`).join("")||'<div class="muted">タスクはありません</div>';document.querySelectorAll("[data-task]").forEach(c=>c.onchange=()=>{let t=db.tasks.find(x=>x.id===c.dataset.task);t.done=c.checked;save()});document.querySelectorAll("[data-del-task]").forEach(b=>b.onclick=()=>{db.tasks=db.tasks.filter(x=>x.id!==b.dataset.delTask);save()})}
+$("taskDate").value=today();$("taskDate").onchange=()=>selectedDate=$("taskDate").value;
+$("addTask").onclick=()=>{let title=$("taskTitle").value.trim();if(!title)return;db.tasks.push({id:crypto.randomUUID(),date:$("taskDate").value||today(),title,subject:$("taskSubject").value,minutes:+$("taskMinutes").value||0,done:false});$("taskTitle").value="";selectedDate=$("taskDate").value;save()};
+$("addMaterial").onclick=()=>{let name=$("matName").value.trim();if(!name)return;db.materials.push({id:crypto.randomUUID(),name,subject:$("matSubject").value,type:$("matType").value,total:+$("matTotal").value||1,done:+$("matDone").value||0,checks:[]});$("matName").value="";save()};
+function renderMaterials(){$("materialList").innerHTML=db.materials.map(m=>{let pct=m.type==="checklist"?(m.checks.length?Math.round(m.checks.filter(Boolean).length/m.checks.length*100):0):Math.min(100,Math.round(m.done/m.total*100));return `<div class="panel"><div class="row between"><div><h3>${esc(m.name)}</h3><small>${esc(m.subject)} ・ ${m.type==="pages"?"ページ":m.type==="problems"?"問題":"チェックリスト"}</small></div><b>${pct}%</b></div><div class="bar"><i style="width:${pct}%"></i></div>${m.type==="checklist"?`${(m.checkNames||[]).map((n,i)=>`<label class="item"><input class="check" type="checkbox" data-check-item="${m.id}:${i}" ${m.checks[i]?"checked":""}>${esc(n)}</label>`).join("")}<button class="secondary" data-check="${m.id}">項目を追加</button>`:`<div class="row" style="margin-top:10px"><input style="max-width:110px" type="number" min="0" value="${m.done}" data-progress="${m.id}"><span class="muted">/ ${m.total}</span><button class="secondary" data-save-progress="${m.id}">更新</button></div>`}<button class="danger" data-del-mat="${m.id}">教材を削除</button></div>`}).join("")||'<div class="muted">教材はまだ登録されていません</div>';
+document.querySelectorAll("[data-save-progress]").forEach(b=>b.onclick=()=>{let m=db.materials.find(x=>x.id===b.dataset.saveProgress);m.done=Math.max(0,+document.querySelector(`[data-progress="${m.id}"]`).value||0);save()});
+document.querySelectorAll("[data-check]").forEach(b=>b.onclick=()=>{let m=db.materials.find(x=>x.id===b.dataset.check);let n=prompt("チェック項目の名前");if(n){m.checks.push(false);m.checkNames??=[];m.checkNames.push(n);save()}});
+document.querySelectorAll("[data-check-item]").forEach(c=>c.onchange=()=>{let [id,i]=c.dataset.checkItem.split(":");let m=db.materials.find(x=>x.id===id);m.checks[+i]=c.checked;save()});
+document.querySelectorAll("[data-del-mat]").forEach(b=>b.onclick=()=>{db.materials=db.materials.filter(x=>x.id!==b.dataset.delMat);save()})}
+function renderScoreFields(){$("subjectScoreFields").innerHTML=db.subjects.map(s=>`<div><label>${esc(s)}</label><input type="number" min="0" data-score="${esc(s)}" placeholder="得点"></div>`).join("")}
+$("addExam").onclick=()=>{let name=$("examName").value.trim();if(!name)return;let scores={};document.querySelectorAll("[data-score]").forEach(i=>{if(i.value!=="")scores[i.dataset.score]=+i.value});db.exams.push({id:crypto.randomUUID(),name,date:$("examDate").value||today(),total:$("examTotal").value, deviation:$("examDeviation").value,rank:$("examRank").value,judgment:$("examJudgment").value,scores});save()};
+function renderGrades(){$("gradeList").innerHTML=db.exams.slice().reverse().map(e=>`<div class="panel"><h3>${esc(e.name)}</h3><small>${esc(e.date)}</small><div class="grid"><div>総合：${esc(e.total||"未入力")}</div><div>偏差値：${esc(e.deviation||"未入力")}</div><div>順位：${esc(e.rank||"未入力")}</div><div>判定：${esc(e.judgment||"未入力")}</div></div><div class="muted">${Object.entries(e.scores||{}).map(([k,v])=>`${esc(k)} ${v}点`).join(" ・ ")}</div></div>`).join("")||'<div class="muted">成績データはありません</div>'}
+function renderAnalysis(){let total=db.sessions.reduce((a,s)=>a+s.seconds,0);$("allTime").textContent=(total/3600).toFixed(1)+"時間";$("studyDays").textContent=new Set(db.sessions.map(s=>s.date)).size+"日";$("subjectStats").innerHTML=db.subjects.map(s=>{let sec=db.sessions.filter(x=>x.subject===s).reduce((a,x)=>a+x.seconds,0);return `<div class="item"><div class="row between"><span>${esc(s)}</span><b>${mins(sec/60)}</b></div><div class="bar"><i style="width:${total?sec/total*100:0}%"></i></div></div>`}).join("");
+let ds=[];for(let i=6;i>=0;i--){let d=new Date();d.setDate(d.getDate()-i);let k=d.toISOString().slice(0,10);ds.push({d:k,s:daySeconds(k)})}$("weeklyStats").innerHTML=ds.map(x=>`<div class="item"><div class="row between"><span>${x.d.slice(5)}</span><b>${mins(x.s/60)}</b></div><div class="bar"><i style="width:${Math.min(100,x.s/3600/4*100)}%"></i></div></div>`).join("")}
+function renderSettings(){$("subjectList").innerHTML=db.subjects.map(s=>`<span class="pill">${esc(s)}</span>`).join(" ");$("dailyGoal").value=db.goals.daily;$("weeklyGoal").value=db.goals.weekly;$("monthlyGoal").value=db.goals.monthly;$("focusLength").value=db.timer.focus;$("breakLength").value=db.timer.rest}
+$("addSubject").onclick=()=>{let s=$("newSubject").value.trim();if(s&&!db.subjects.includes(s)){db.subjects.push(s);$("newSubject").value="";["timerSubject","taskSubject","matSubject"].forEach(id=>fillSelect(id));renderScoreFields();save()}};
+$("saveGoals").onclick=()=>{db.goals={daily:+$("dailyGoal").value||0,weekly:+$("weeklyGoal").value||0,monthly:+$("monthlyGoal").value||0};save()};
+$("saveTimerSettings").onclick=()=>{db.timer={focus:Math.max(1,+$("focusLength").value||25),rest:Math.max(1,+$("breakLength").value||5)};save()};
+function download(name,content,type){let a=document.createElement("a"),u=URL.createObjectURL(new Blob([content],{type}));a.href=u;a.download=name;a.click();URL.revokeObjectURL(u)}
+$("exportJson").onclick=()=>download("studytrack-backup-"+today()+".json",JSON.stringify(db,null,2),"application/json");
+$("exportCsv").onclick=()=>{let rows=[["date","subject","material","seconds"],...db.sessions.map(s=>[s.date,s.subject,s.material,s.seconds])];let csv=rows.map(r=>r.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")).join("\n");download("study-sessions-"+today()+".csv","\ufeff"+csv,"text/csv;charset=utf-8")};
+$("importFile").onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let x=JSON.parse(await f.text());if(!x.subjects||!x.sessions)throw Error();if(confirm("現在のデータをバックアップ内容で置き換えます。よろしいですか？")){db=x;save();alert("復元しました")}}catch{alert("JSONファイルを読み込めませんでした")}};
+function renderAll(){fillSelect("timerSubject");fillSelect("taskSubject");fillSelect("matSubject");$("timerSubject").onchange();renderHome();renderCalendar();renderTasks();renderMaterials();renderGrades();renderAnalysis();renderSettings()}
+renderAll();paintTimer();renderScoreFields();
+if("serviceWorker" in navigator && location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").catch(()=>{});
+</script>
+</body></html>
